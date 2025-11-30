@@ -1824,3 +1824,58 @@ C_Timer.After(0.5, function()
         end
     end
 end)
+
+-------------------------------------------------
+-- Click-Castings Fixes
+-------------------------------------------------
+do
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("ADDON_LOADED")
+    f:SetScript("OnEvent", function(self, event, addonName)
+        if addonName == "Cell_Wrath" then
+            PatchCreateScrollFrame()
+            PatchBindingListButton()
+            self:UnregisterEvent("ADDON_LOADED")
+        end
+    end)
+
+    -- Fix 1: ScrollFrame eats clicks
+    function PatchCreateScrollFrame()
+        if not Cell or not Cell.CreateScrollFrame then return end
+        if Cell._ScrollFramePatchedForBindings then return end
+        Cell._ScrollFramePatchedForBindings = true
+
+        local orig_CreateScrollFrame = Cell.CreateScrollFrame
+        Cell.CreateScrollFrame = function(parent, top, bottom, color, border)
+            orig_CreateScrollFrame(parent, top, bottom, color, border)
+
+            if parent:GetName() == "ClickCastingsTab_BindingsFrame" then
+                local scroll = parent.scrollFrame
+                if scroll then
+                    if scroll.EnableMouse then scroll:EnableMouse(false) end
+                    if scroll.content and scroll.content.EnableMouse then scroll.content:EnableMouse(true) end
+                end
+            end
+        end
+    end
+
+    -- Fix 2: BindingListButton grids have too low frame level (6 vs 530+)
+    function PatchBindingListButton()
+        if not Cell or not Cell.CreateBindingListButton then return end
+        if Cell._BindingListButtonPatched then return end
+        Cell._BindingListButtonPatched = true
+
+        local orig_CreateBindingListButton = Cell.CreateBindingListButton
+        Cell.CreateBindingListButton = function(parent, modifier, bindKey, bindType, bindAction)
+            local b = orig_CreateBindingListButton(parent, modifier, bindKey, bindType, bindAction)
+            
+            -- Fix frame levels of grids
+            local level = b:GetFrameLevel() + 1
+            if b.keyGrid then b.keyGrid:SetFrameLevel(level) end
+            if b.typeGrid then b.typeGrid:SetFrameLevel(level) end
+            if b.actionGrid then b.actionGrid:SetFrameLevel(level) end
+            
+            return b
+        end
+    end
+end
