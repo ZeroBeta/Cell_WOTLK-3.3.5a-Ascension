@@ -21,6 +21,11 @@ local UnitGUID = UnitGUID
 local UnitName = UnitName
 local GetUnitName = GetUnitName
 local UnitClassBase = UnitClassBase
+if Cell.isWrath then
+    UnitClassBase = function(unit)
+        return select(2, UnitClass(unit))
+    end
+end
 local UnitHealth = UnitHealth
 local UnitHealthMax = UnitHealthMax
 -- local UnitGetIncomingHeals = UnitGetIncomingHeals

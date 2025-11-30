@@ -440,6 +440,15 @@ if not UnitGroupRolesAssigned then
     end
 end
 
+-- UnitClassBase
+if not UnitClassBase then
+    -- Retail API: returns the class filename (e.g. "WARRIOR")
+    -- WotLK: UnitClass returns (localizedName, fileName, classIndex)
+    function UnitClassBase(unit)
+        return select(2, UnitClass(unit))
+    end
+end
+
 
 -------------------------------------------------
 -- StatusBar smoothing helpers polyfill
@@ -1815,9 +1824,7 @@ local function WrapSetOrientation()
             -- Call original function
             return originalSetOrientation(button, orientation, rotateTexture)
         end
-        print("Cell_Wrath: SetOrientation wrapper applied successfully")
     else
-        print("Cell_Wrath: WARNING - Cell.bFuncs.SetOrientation not found, retrying...")
         C_Timer.After(0.5, WrapSetOrientation)
     end
 end
