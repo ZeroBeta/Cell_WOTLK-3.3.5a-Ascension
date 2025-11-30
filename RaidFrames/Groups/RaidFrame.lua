@@ -318,7 +318,6 @@ end
 
 local function UpdateHeadersShowRaidAttribute()
     if Cell.vars.currentLayoutTable["main"]["combineGroups"] then
-        F.Debug("|cffff00ffShowing COMBINED header, hiding SEPARATED headers")
         combinedHeader:SetAttribute("showRaid", true)
         combinedHeader:Show()
         for _, header in ipairs(separatedHeaders) do
@@ -326,7 +325,6 @@ local function UpdateHeadersShowRaidAttribute()
             header:Hide()
         end
     else
-        F.Debug("|cffff00ffShowing SEPARATED headers, hiding COMBINED header")
         combinedHeader:SetAttribute("showRaid", nil)
         combinedHeader:Hide()
         for _, header in ipairs(separatedHeaders) do
@@ -349,17 +347,11 @@ local function UpdateHeader(header, layout, which)
 
     if not which or which == "header" or which == "main-size" or which == "main-power" or which == "groupFilter" or which == "barOrientation" or which == "powerFilter" then
         local width, height = unpack(layout["main"]["size"])
-        F.Debug("|cffff00ffUpdateHeader - Header:|r", header:GetName(), "|cffff00ffNumButtons:|r", #header, "|cffff00ffSize:|r", width.."x"..height)
 
         for _, b in ipairs(header) do
             if not which or which == "header" or which == "main-size" or which == "groupFilter" then
                 P.Size(b, width, height)
                 b:ClearAllPoints()
-
-                -- Debug button info
-                local unit = b:GetAttribute("unit")
-                local actualWidth, actualHeight = b:GetSize()
-                F.Debug("|cffff00ffRaid button:|r", b:GetName(), "|cffff00ffUnit:|r", unit or "NONE", "|cffff00ffSize:|r", actualWidth.."x"..actualHeight)
             end
             -- NOTE: SetOrientation BEFORE SetPowerSize
             if not which or which == "header" or which == "barOrientation" then
@@ -401,35 +393,25 @@ end
 -- end
 
 local function RaidFrame_UpdateLayout(layout, which)
-    F.Debug("|cffff00ff=== RaidFrame_UpdateLayout START ===")
-    F.Debug("|cffff00ffGroupType:|r", Cell.vars.groupType, "|cffff00ffIsHidden:|r", Cell.vars.isHidden, "|cffff00ffWhich:|r", which)
-    F.Debug("|cffff00ffLayout param:|r", layout, "|cffff00ffCellDB exists:|r", CellDB ~= nil)
-
     -- visibility
     if Cell.vars.groupType ~= "raid" or Cell.vars.isHidden then
-        F.Debug("|cffff00ffRaidFrame HIDING - GroupType:|r", Cell.vars.groupType, "|cffff00ffIsHidden:|r", Cell.vars.isHidden)
         UnregisterAttributeDriver(raidFrame, "state-visibility")
         raidFrame:Hide()
         return
     else
-        F.Debug("|cffff00ffRaidFrame SHOWING - Registering visibility driver and calling Show()")
         RegisterAttributeDriver(raidFrame, "state-visibility", "show")
         raidFrame:Show()  --! WotLK 3.3.5a: Must explicitly call Show()
     end
 
     --! WotLK 3.3.5a: Safety check for layout
     if not layout or not CellDB or not CellDB["layouts"] or not CellDB["layouts"][layout] then
-        F.Debug("|cffff0000Layout not ready! layout:|r", layout or "NIL", "|cffff0000CellDB:|r", CellDB ~= nil, "|cffff0000CellDB.layouts:|r", CellDB and CellDB["layouts"] ~= nil)
         -- Layout not ready yet, retry later
         C_Timer.After(0.5, function()
             local layoutName = CellDB["general"] and CellDB["general"]["layout"] or "default"
-            F.Debug("|cffff0000Retrying UpdateLayout with:|r", layoutName)
             Cell.Fire("UpdateLayout", layoutName, which)
         end)
         return
     end
-
-    F.Debug("|cffff00ffLayout is ready, proceeding with update")
 
     -- update
     layout = CellDB["layouts"][layout]
@@ -479,10 +461,7 @@ local function RaidFrame_UpdateLayout(layout, which)
         UpdateHeadersShowRaidAttribute()
     end
 
-    F.Debug("|cffff00ffCombineGroups setting:|r", layout["main"]["combineGroups"])
-
     if layout["main"]["combineGroups"] then
-        F.Debug("|cffff00ffUpdating COMBINED header")
         UpdateHeader(combinedHeader, layout, which)
 
         if not which or which == "header" or which == "main-arrangement" or which == "rows_columns" or which == "groupSpacing" or which == "unitsPerColumn" then
@@ -536,7 +515,6 @@ local function RaidFrame_UpdateLayout(layout, which)
         end
 
     else
-        F.Debug("|cffff00ffUpdating SEPARATED headers - shownGroups:|r", #shownGroups)
         if not which or which == "header" or which == "main-arrangement" or which == "rows_columns" or which == "groupSpacing" or which == "groupFilter" then
             for i, group in ipairs(shownGroups) do
                 local header = separatedHeaders[group]

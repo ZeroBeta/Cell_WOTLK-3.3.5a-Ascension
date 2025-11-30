@@ -43,8 +43,6 @@ Cell.MIN_DEBUFFS_VERSION = 246
 --[==[@debug@
 local debugMode = true
 --@end-debug@]==]
--- FORCE DEBUG MODE ON
-local debugMode = true
 function F.Debug(arg, ...)
     if debugMode then
         if type(arg) == "string" or type(arg) == "number" then
@@ -537,7 +535,6 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     if IsInRaid() then
         if Cell.vars.groupType ~= "raid" then
             Cell.vars.groupType = "raid"
-            F.Debug("|cffffbb77GroupTypeChanged:|r raid")
             Cell.Fire("GroupTypeChanged", "raid")
             -- Layout update will be triggered by GroupTypeChanged callback -> PreUpdateLayout
         end
@@ -588,11 +585,8 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     elseif IsInGroup() then
         if Cell.vars.groupType ~= "party" then
             Cell.vars.groupType = "party"
-            F.Debug("|cffffbb77GroupTypeChanged:|r party (NumMembers: "..numGroupMembers..")")
             Cell.Fire("GroupTypeChanged", "party")
             -- Layout update will be triggered by GroupTypeChanged callback -> PreUpdateLayout
-        else
-            F.Debug("|cff00ff00Already in party, no group type change (NumMembers: "..numGroupMembers..")")
         end
 
         -- update Cell.unitButtons.raid.units
@@ -610,10 +604,7 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     else
         if Cell.vars.groupType ~= "solo" then
             Cell.vars.groupType = "solo"
-            F.Debug("|cffffbb77GroupTypeChanged:|r solo")
             Cell.Fire("GroupTypeChanged", "solo")
-        else
-            F.Debug("|cff00ff00Already solo, no group type change")
         end
 
         -- update Cell.unitButtons.raid.units
@@ -710,7 +701,6 @@ local function UpdateSpecVars(skipTalentUpdate)
 end
 
 function eventFrame:PLAYER_LOGIN()
-    F.Debug("|cffbbbbbb=== PLAYER_LOGIN ===")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     -- WotLK 3.3.5a: Additional events for group roster changes
@@ -806,13 +796,11 @@ function eventFrame:RAID_ROSTER_UPDATE()
 end
 
 function eventFrame:ACTIVE_TALENT_GROUP_CHANGED()
-    F.Debug("|cffbbbbbb=== ACTIVE_TALENT_GROUP_CHANGED ===")
     -- not in combat & spec CHANGED
     if not InCombatLockdown() and (Cell.vars.activeTalentGroup ~= GetActiveTalentGroup()) then
         UpdateSpecVars()
 
         Cell.Fire("UpdateClickCastings")
-        F.Debug("|cffffbb77ActiveTalentGroupChanged:|r", Cell.vars.activeTalentGroup)
         Cell.Fire("ActiveTalentGroupChanged", Cell.vars.activeTalentGroup)
 
         CheckDivineAegis()

@@ -386,6 +386,49 @@ if not UnitInPhase then
     end
 end
 
+-- UnitGroupRolesAssigned
+if not UnitGroupRolesAssigned then
+    -- Retail API: returns the role assigned to a unit ("TANK", "HEALER", "DAMAGER", "NONE")
+    -- WotLK 3.3.5a has role detection through GetRaidRosterInfo and LFG system
+    function UnitGroupRolesAssigned(unit)
+        if not unit then return "NONE" end
+
+        -- For raid members, get role from GetRaidRosterInfo
+        if UnitInRaid(unit) then
+            for i = 1, GetNumRaidMembers() do
+                -- name, rank, subgroup, level, class, fileName, zone, online, isDead, role, isML, combatRole
+                local name, _, _, _, _, _, _, _, _, role = GetRaidRosterInfo(i)
+                local raidUnit = "raid" .. i
+
+                if UnitIsUnit(unit, raidUnit) then
+                    -- role is returned from GetRaidRosterInfo (from LFG/Dungeon Finder system)
+                    -- Convert WotLK role format to retail format if needed
+                    if role == "MAINTANK" or role == "TANK" then
+                        return "TANK"
+                    elseif role == "MAINASSIST" or role == "HEALER" then
+                        return role == "HEALER" and "HEALER" or "DAMAGER"
+                    elseif role == "DAMAGER" or role == "DPS" then
+                        return "DAMAGER"
+                    end
+                    break
+                end
+            end
+        end
+
+        -- Fallback: Check party assignments (Main Tank/Main Assist)
+        if GetPartyAssignment("MAINTANK", unit) then
+            return "TANK"
+        end
+
+        if GetPartyAssignment("MAINASSIST", unit) then
+            return "DAMAGER"
+        end
+
+        -- No role assigned
+        return "NONE"
+    end
+end
+
 
 -------------------------------------------------
 -- StatusBar smoothing helpers polyfill

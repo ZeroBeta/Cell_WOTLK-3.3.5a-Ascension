@@ -139,19 +139,13 @@ C_Timer.After(0.5, function()
 end)
 
 local function PartyFrame_UpdateLayout(layout, which)
-    F.Debug("|cffff8800=== PartyFrame_UpdateLayout START ===")
-    F.Debug("|cffff8800GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden, "|cffff8800Which:|r", which)
-    F.Debug("|cffff8800Layout param:|r", layout, "|cffff8800CellDB exists:|r", CellDB ~= nil)
-
     -- visibility
     --! WotLK 3.3.5a: Party frame handles both "party" and "solo" group types
     if (Cell.vars.groupType ~= "party" and Cell.vars.groupType ~= "solo") or Cell.vars.isHidden then
-        F.Debug("|cffff8800PartyFrame HIDING - GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden)
         UnregisterAttributeDriver(partyFrame, "state-visibility")
         partyFrame:Hide()
         return
     else
-        F.Debug("|cffff8800PartyFrame SHOWING - Registering visibility driver and calling Show()")
         --! WotLK 3.3.5a: Simplified visibility driver - just show when groupType is party or solo
         RegisterAttributeDriver(partyFrame, "state-visibility", "show")
         partyFrame:Show()  --! WotLK 3.3.5a: Must explicitly call Show()
@@ -159,17 +153,13 @@ local function PartyFrame_UpdateLayout(layout, which)
 
     --! WotLK 3.3.5a: Safety check for layout
     if not layout or not CellDB or not CellDB["layouts"] or not CellDB["layouts"][layout] then
-        F.Debug("|cffff0000Layout not ready! layout:|r", layout or "NIL", "|cffff0000CellDB:|r", CellDB ~= nil, "|cffff0000CellDB.layouts:|r", CellDB and CellDB["layouts"] ~= nil)
         -- Layout not ready yet, retry later
         C_Timer.After(0.5, function()
             local layoutName = CellDB["general"] and CellDB["general"]["layout"] or "default"
-            F.Debug("|cffff0000Retrying UpdateLayout with:|r", layoutName)
             Cell.Fire("UpdateLayout", layoutName, which)
         end)
         return
     end
-
-    F.Debug("|cffff8800Layout is ready, proceeding with update")
 
     -- update
     layout = CellDB["layouts"][layout]
@@ -292,13 +282,11 @@ local function PartyFrame_UpdateLayout(layout, which)
     end
 
     if not which or strfind(which, "size$") or strfind(which, "power$") or which == "barOrientation" or which == "powerFilter" then
-        F.Debug("|cffff8800Setting button sizes - NumButtons in header:|r", #header)
         for i, playerButton in ipairs(header) do
             local petButton = playerButton.petButton
 
             if not which or strfind(which, "size$") then
                 local width, height = unpack(layout["main"]["size"])
-                F.Debug("|cffff8800Button"..i.." - Setting size:|r", width, "x", height, "|cffff8800Unit:|r", playerButton:GetAttribute("unit") or "NO UNIT")
                 P.Size(playerButton, width, height)
                 header:SetAttribute("buttonWidth", P.Scale(width))
                 header:SetAttribute("buttonHeight", P.Scale(height))
