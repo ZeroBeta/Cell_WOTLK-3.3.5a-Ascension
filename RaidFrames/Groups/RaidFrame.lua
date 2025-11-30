@@ -294,11 +294,17 @@ end
 local function UpdateHeader(header, layout, which)
     if not which or which == "header" or which == "main-size" or which == "main-power" or which == "groupFilter" or which == "barOrientation" or which == "powerFilter" then
         local width, height = unpack(layout["main"]["size"])
+        -- F.Debug("|cffff00ffUpdateHeader - Header:|r", header:GetName(), "|cffff00ffNumButtons:|r", #header, "|cffff00ffSize:|r", width.."x"..height)
 
         for _, b in ipairs(header) do
             if not which or which == "header" or which == "main-size" or which == "groupFilter" then
                 P.Size(b, width, height)
                 b:ClearAllPoints()
+
+                -- Debug button info
+                -- local unit = b:GetAttribute("unit")
+                -- local actualWidth, actualHeight = b:GetSize()
+                -- F.Debug("|cffff00ffRaid button:|r", b:GetName(), "|cffff00ffUnit:|r", unit or "NONE", "|cffff00ffSize:|r", actualWidth.."x"..actualHeight)
             end
             -- NOTE: SetOrientation BEFORE SetPowerSize
             if not which or which == "header" or which == "barOrientation" then
@@ -340,12 +346,17 @@ end
 -- end
 
 local function RaidFrame_UpdateLayout(layout, which)
+    -- F.Debug("|cffff00ff=== RaidFrame_UpdateLayout START ===")
+    -- F.Debug("|cffff00ffGroupType:|r", Cell.vars.groupType, "|cffff00ffIsHidden:|r", Cell.vars.isHidden, "|cffff00ffWhich:|r", which)
+
     -- visibility
     if Cell.vars.groupType ~= "raid" or Cell.vars.isHidden then
+        -- F.Debug("|cffff00ffRaidFrame HIDING - GroupType:|r", Cell.vars.groupType, "|cffff00ffIsHidden:|r", Cell.vars.isHidden)
         UnregisterAttributeDriver(raidFrame, "state-visibility")
         raidFrame:Hide()
         return
     else
+        -- F.Debug("|cffff00ffRaidFrame SHOWING - Registering visibility driver")
         RegisterAttributeDriver(raidFrame, "state-visibility", "show")
     end
 
@@ -561,6 +572,37 @@ local function RaidFrame_UpdateLayout(layout, which)
             end
         end
     end
+
+    -- Debug final raid button states
+    -- F.Debug("|cffff00ff=== RaidFrame Final Status ===")
+    -- F.Debug("|cffff00ffRaidFrame IsVisible:|r", raidFrame:IsVisible())
+    -- F.Debug("|cffff00ffCombineGroups:|r", layout["main"]["combineGroups"])
+
+    -- if layout["main"]["combineGroups"] then
+    --     F.Debug("|cffff00ffCombined Header NumButtons:|r", #combinedHeader, "|cffff00ffIsVisible:|r", combinedHeader:IsVisible())
+    --     for i, b in ipairs(combinedHeader) do
+    --         local unit = b:GetAttribute("unit")
+    --         local isVisible = b:IsVisible()
+    --         local width, height = b:GetSize()
+    --         if i <= 5 then -- Only show first 5 to avoid spam
+    --             F.Debug("|cffff00ffButton"..i..":|r", b:GetName(), "Unit:", unit or "NONE", "Visible:", isVisible, "Size:", width.."x"..height)
+    --         end
+    --     end
+    -- else
+    --     for groupNum = 1, 8 do
+    --         local header = separatedHeaders[groupNum]
+    --         if header:IsVisible() then
+    --             F.Debug("|cffff00ffGroup"..groupNum.." Header NumButtons:|r", #header, "|cffff00ffIsVisible:|r", header:IsVisible())
+    --             for i, b in ipairs(header) do
+    --                 local unit = b:GetAttribute("unit")
+    --                 local isVisible = b:IsVisible()
+    --                 local width, height = b:GetSize()
+    --                 F.Debug("|cffff00ffG"..groupNum.." Button"..i..":|r Unit:", unit or "NONE", "Visible:", isVisible, "Size:", width.."x"..height)
+    --             end
+    --         end
+    --     end
+    -- end
+    -- F.Debug("|cffff00ff=== RaidFrame_UpdateLayout END ===")
 end
 Cell.RegisterCallback("UpdateLayout", "RaidFrame_UpdateLayout", RaidFrame_UpdateLayout)
 

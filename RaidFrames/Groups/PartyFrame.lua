@@ -11,7 +11,13 @@ local header = CreateFrame("Frame", "CellPartyFrameHeader", partyFrame, "SecureG
 header:SetAttribute("template", "CellUnitButtonTemplate")
 
 function header:UpdateButtonUnit(bName, unit)
-    if not unit then return end
+    -- F.Debug("|cff00ffff=== header:UpdateButtonUnit called ===")
+    -- F.Debug("|cff00ffffButtonName:|r", bName, "|cff00ffffUnit:|r", unit or "NIL")
+
+    if not unit then
+        -- F.Debug("|cff00ffffERROR: Unit is nil, returning early")
+        return
+    end
 
     _G[bName].unit = unit -- OmniCD
 
@@ -21,6 +27,8 @@ function header:UpdateButtonUnit(bName, unit)
     else
         petUnit = string.gsub(unit, "party", "partypet")
     end
+
+    -- F.Debug("|cff00ffffRegistering button:|r", bName, "|cff00fffffor unit:|r", unit, "|cff00ffffpetUnit:|r", petUnit)
     Cell.unitButtons.party.units[unit] = _G[bName]
     Cell.unitButtons.party.units[petUnit] = _G[bName].petButton
 end
@@ -63,40 +71,20 @@ header:SetAttribute("unitsPerColumn", 5)
 header:SetAttribute("showPlayer", true)
 header:SetAttribute("showParty", true)
 
---! to make needButtons == 5 cheat configureChildren in SecureGroupHeaders.lua
-header:SetAttribute("startingIndex", -4)
-header:Show()
-header:SetAttribute("startingIndex", 1)
-
--- init pet buttons
-for i, playerButton in ipairs(header) do
-    -- playerButton.type = "main" -- layout setup
-
-    local petButton = CreateFrame("Button", playerButton:GetName().."Pet", playerButton, "CellUnitButtonTemplate")
-    -- petButton.type = "pet" -- layout setup
-    petButton:SetIgnoreParentAlpha(true)
-
-    --! button for pet/vehicle only, toggleForVehicle MUST be false
-    petButton:SetAttribute("toggleForVehicle", false)
-
-    playerButton.petButton = petButton
-    SecureHandlerSetFrameRef(playerButton, "petButton", petButton)
-
-    -- for IterateAllUnitButtons
-    Cell.unitButtons.party["player"..i] = playerButton
-    Cell.unitButtons.party["pet"..i] = petButton
-
-    -- OmniCD
-    _G["CellPartyFrameMember"..i] = playerButton
-end
+--! WotLK 3.3.5a: Button creation and pet button setup is now handled by Polyfills.lua
 
 local function PartyFrame_UpdateLayout(layout, which)
+    -- F.Debug("|cffff8800=== PartyFrame_UpdateLayout START ===")
+    -- F.Debug("|cffff8800GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden, "|cffff8800Which:|r", which)
+
     -- visibility
     if Cell.vars.groupType ~= "party" or Cell.vars.isHidden then
+        -- F.Debug("|cffff8800PartyFrame HIDING - GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden)
         UnregisterAttributeDriver(partyFrame, "state-visibility")
         partyFrame:Hide()
         return
     else
+        -- F.Debug("|cffff8800PartyFrame SHOWING - Registering visibility driver")
         RegisterAttributeDriver(partyFrame, "state-visibility", "[@raid1,exists] hide;[@party1,exists] show;[group:party] show;hide")
     end
 
@@ -170,29 +158,27 @@ local function PartyFrame_UpdateLayout(layout, which)
         header:SetPoint(point)
         header:SetAttribute("point", headerPoint)
 
-        --! force update unitbutton's point
-        for j = 1, 5 do
-            header[j]:ClearAllPoints()
-            -- update petButton's point
-            header[j].petButton:ClearAllPoints()
-            if orientation == "vertical" then
-                header[j].petButton:SetPoint(point, header[j], petAnchorPoint, P.Scale(petSpacing), 0)
-            else
-                header[j].petButton:SetPoint(point, header[j], petAnchorPoint, 0, P.Scale(petSpacing))
-            end
-        end
+        --! WotLK 3.3.5a: Button positioning is now handled by Polyfills.lua
+
         header:SetAttribute("unitsPerColumn", 5)
     end
 
     if not which or strfind(which, "size$") or strfind(which, "power$") or which == "barOrientation" or which == "powerFilter" then
+        -- F.Debug("|cffff8800Setting button sizes - NumButtons in header:|r", #header)
         for i, playerButton in ipairs(header) do
             local petButton = playerButton.petButton
 
             if not which or strfind(which, "size$") then
                 local width, height = unpack(layout["main"]["size"])
+                -- F.Debug("|cffff8800Button"..i.." - Setting size:|r", width, "x", height, "|cffff8800Unit:|r", playerButton:GetAttribute("unit") or "NO UNIT")
                 P.Size(playerButton, width, height)
                 header:SetAttribute("buttonWidth", P.Scale(width))
                 header:SetAttribute("buttonHeight", P.Scale(height))
+
+                -- Debug actual button size
+                -- local actualWidth, actualHeight = playerButton:GetSize()
+                -- F.Debug("|cffff8800Button"..i.." - Actual size after P.Size:|r", actualWidth, "x", actualHeight)
+
                 if layout["pet"]["sameSizeAsMain"] then
                     P.Size(petButton, width, height)
                 else
@@ -248,6 +234,18 @@ local function PartyFrame_UpdateLayout(layout, which)
     if not which or which == "hideSelf" then
         header:SetAttribute("showPlayer", not layout["main"]["hideSelf"])
     end
+
+    -- Debug final button states
+    -- F.Debug("|cffff8800=== PartyFrame Button Status ===")
+    -- F.Debug("|cffff8800Header IsVisible:|r", header:IsVisible(), "|cffff8800PartyFrame IsVisible:|r", partyFrame:IsVisible())
+    -- for i, playerButton in ipairs(header) do
+    --     local unit = playerButton:GetAttribute("unit")
+    --     local isVisible = playerButton:IsVisible()
+    --     local isShown = playerButton:IsShown()
+    --     local width, height = playerButton:GetSize()
+    --     F.Debug("|cffff8800Button"..i..":|r Unit:", unit or "NONE", "IsVisible:", isVisible, "IsShown:", isShown, "Size:", width.."x"..height)
+    -- end
+    -- F.Debug("|cffff8800=== PartyFrame_UpdateLayout END ===")
 end
 Cell.RegisterCallback("UpdateLayout", "PartyFrame_UpdateLayout", PartyFrame_UpdateLayout)
 

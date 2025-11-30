@@ -43,6 +43,8 @@ Cell.MIN_DEBUFFS_VERSION = 246
 --[==[@debug@
 local debugMode = true
 --@end-debug@]==]
+-- FORCE DEBUG MODE ON
+local debugMode = true
 function F.Debug(arg, ...)
     if debugMode then
         if type(arg) == "string" or type(arg) == "number" then
@@ -526,10 +528,16 @@ Cell.vars.raidSetup = {
 }
 
 function eventFrame:GROUP_ROSTER_UPDATE()
+    -- F.Debug("|cff00ff00=== GROUP_ROSTER_UPDATE FIRED ===")
+    local numGroupMembers = GetNumGroupMembers()
+    local isInRaid = IsInRaid()
+    local isInGroup = IsInGroup()
+    -- F.Debug("|cff00ff00NumGroupMembers:|r", numGroupMembers, "|cff00ff00IsInRaid:|r", isInRaid, "|cff00ff00IsInGroup:|r", isInGroup)
+
     if IsInRaid() then
         if Cell.vars.groupType ~= "raid" then
             Cell.vars.groupType = "raid"
-            F.Debug("|cffffbb77GroupTypeChanged:|r raid")
+            -- F.Debug("|cffffbb77GroupTypeChanged:|r raid")
             Cell.Fire("GroupTypeChanged", "raid")
         end
 
@@ -579,8 +587,12 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     elseif IsInGroup() then
         if Cell.vars.groupType ~= "party" then
             Cell.vars.groupType = "party"
-            F.Debug("|cffffbb77GroupTypeChanged:|r party")
+            -- F.Debug("|cffffbb77GroupTypeChanged:|r party (NumMembers: "..numGroupMembers..")")
             Cell.Fire("GroupTypeChanged", "party")
+        else
+            -- F.Debug("|cff00ff00Already in party, no group type change (NumMembers: "..numGroupMembers..")")
+            -- WotLK 3.3.5a: Trigger layout update when roster changes to refresh buttons
+            Cell.Fire("UpdateLayout", CellDB["general"]["layout"], "roster")
         end
 
         -- update Cell.unitButtons.raid.units
@@ -598,8 +610,10 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     else
         if Cell.vars.groupType ~= "solo" then
             Cell.vars.groupType = "solo"
-            F.Debug("|cffffbb77GroupTypeChanged:|r solo")
+            -- F.Debug("|cffffbb77GroupTypeChanged:|r solo")
             Cell.Fire("GroupTypeChanged", "solo")
+        else
+            -- F.Debug("|cff00ff00Already solo, no group type change")
         end
 
         -- update Cell.unitButtons.raid.units
@@ -699,6 +713,9 @@ function eventFrame:PLAYER_LOGIN()
     F.Debug("|cffbbbbbb=== PLAYER_LOGIN ===")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+    -- WotLK 3.3.5a: Additional events for group roster changes
+    eventFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+    eventFrame:RegisterEvent("RAID_ROSTER_UPDATE")
     eventFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
     eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
     eventFrame:RegisterEvent("UI_SCALE_CHANGED")
@@ -779,6 +796,15 @@ end
 
 hooksecurefunc(UIParent, "SetScale", DelayedUpdatePixels)
 
+-- WotLK 3.3.5a: Route additional roster events to GROUP_ROSTER_UPDATE handler
+function eventFrame:PARTY_MEMBERS_CHANGED()
+    eventFrame:GROUP_ROSTER_UPDATE()
+end
+
+function eventFrame:RAID_ROSTER_UPDATE()
+    eventFrame:GROUP_ROSTER_UPDATE()
+end
+
 function eventFrame:ACTIVE_TALENT_GROUP_CHANGED()
     F.Debug("|cffbbbbbb=== ACTIVE_TALENT_GROUP_CHANGED ===")
     -- not in combat & spec CHANGED
@@ -808,6 +834,94 @@ end)
 -- slash command
 -------------------------------------------------
 SLASH_CELL1 = "/cell"
+
+-- Debug command
+SLASH_CELLDEBUG1 = "/celldebug"
+SlashCmdList["CELLDEBUG"] = function(msg)
+    print("=== CELL DEBUG ===")
+
+    -- Check parent frames
+    local mainFrame = _G["CellMainFrame"]
+    local partyFrame = _G["CellPartyFrame"]
+    local partyHeader = _G["CellPartyFrameHeader"]
+
+    print("Parent Frames:")
+    if mainFrame then
+        print("  MainFrame: EXISTS, IsVisible:", mainFrame:IsVisible(), "IsShown:", mainFrame:IsShown())
+        local x, y = mainFrame:GetCenter()
+        print("    Position (center):", x or "nil", y or "nil")
+        local w, h = mainFrame:GetSize()
+        print("    Size:", w, h)
+    else
+        print("  MainFrame: NOT FOUND")
+    end
+
+    if partyFrame then
+        print("  PartyFrame: EXISTS, IsVisible:", partyFrame:IsVisible(), "IsShown:", partyFrame:IsShown())
+        local x, y = partyFrame:GetCenter()
+        print("    Position (center):", x or "nil", y or "nil")
+    else
+        print("  PartyFrame: NOT FOUND")
+    end
+
+    if partyHeader then
+        print("Party Header: EXISTS")
+        print("  NumButtons (#header):", #partyHeader)
+        print("  IsVisible:", partyHeader:IsVisible(), "IsShown:", partyHeader:IsShown())
+        local x, y = partyHeader:GetCenter()
+        print("  Position (center):", x or "nil", y or "nil")
+        print("  Checking buttons 1-5:")
+        for i = 1, 5 do
+            if partyHeader[i] then
+                local unit = partyHeader[i]:GetAttribute("unit")
+                local w, h = partyHeader[i]:GetSize()
+                local isVis = partyHeader[i]:IsVisible()
+                local isShown = partyHeader[i]:IsShown()
+                local x, y = partyHeader[i]:GetCenter()
+                print("    Button"..i..": Unit:", unit or "NONE", "Size:", w.."x"..h, "Vis:", isVis, "Shown:", isShown)
+                print("      Position:", x or "nil", y or "nil")
+            else
+                print("    Button"..i..": NIL")
+            end
+        end
+    else
+        print("Party Header: NOT FOUND")
+    end
+
+    print("Cell.unitButtons.party.units:")
+    if Cell.unitButtons and Cell.unitButtons.party and Cell.unitButtons.party.units then
+        local count = 0
+        for unit, btn in pairs(Cell.unitButtons.party.units) do
+            print("  "..unit..":", btn:GetName())
+            count = count + 1
+        end
+        if count == 0 then print("  (empty)") end
+    end
+
+    print("Group Info:")
+    print("  IsInGroup:", IsInGroup())
+    print("  NumGroupMembers:", GetNumGroupMembers())
+    print("  Cell.vars.groupType:", Cell.vars.groupType)
+
+    -- Check if group type is out of sync and fix it
+    local actualGroupType
+    if IsInRaid() then
+        actualGroupType = "raid"
+    elseif IsInGroup() then
+        actualGroupType = "party"
+    else
+        actualGroupType = "solo"
+    end
+
+    if Cell.vars.groupType ~= actualGroupType then
+        print("  WARNING: Group type mismatch!")
+        print("  Expected:", actualGroupType)
+        print("  Forcing update to:", actualGroupType)
+        Cell.vars.groupType = actualGroupType
+        Cell.Fire("GroupTypeChanged", actualGroupType)
+    end
+end
+
 function SlashCmdList.CELL(msg, editbox)
     local command, rest = msg:match("^(%S*)%s*(.-)$")
     command = strlower(command or "")
