@@ -537,8 +537,9 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     if IsInRaid() then
         if Cell.vars.groupType ~= "raid" then
             Cell.vars.groupType = "raid"
-            -- F.Debug("|cffffbb77GroupTypeChanged:|r raid")
+            F.Debug("|cffffbb77GroupTypeChanged:|r raid")
             Cell.Fire("GroupTypeChanged", "raid")
+            -- Layout update will be triggered by GroupTypeChanged callback -> PreUpdateLayout
         end
 
         -- reset raid setup
@@ -587,12 +588,11 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     elseif IsInGroup() then
         if Cell.vars.groupType ~= "party" then
             Cell.vars.groupType = "party"
-            -- F.Debug("|cffffbb77GroupTypeChanged:|r party (NumMembers: "..numGroupMembers..")")
+            F.Debug("|cffffbb77GroupTypeChanged:|r party (NumMembers: "..numGroupMembers..")")
             Cell.Fire("GroupTypeChanged", "party")
+            -- Layout update will be triggered by GroupTypeChanged callback -> PreUpdateLayout
         else
-            -- F.Debug("|cff00ff00Already in party, no group type change (NumMembers: "..numGroupMembers..")")
-            -- WotLK 3.3.5a: Trigger layout update when roster changes to refresh buttons
-            Cell.Fire("UpdateLayout", CellDB["general"]["layout"], "roster")
+            F.Debug("|cff00ff00Already in party, no group type change (NumMembers: "..numGroupMembers..")")
         end
 
         -- update Cell.unitButtons.raid.units
@@ -610,10 +610,10 @@ function eventFrame:GROUP_ROSTER_UPDATE()
     else
         if Cell.vars.groupType ~= "solo" then
             Cell.vars.groupType = "solo"
-            -- F.Debug("|cffffbb77GroupTypeChanged:|r solo")
+            F.Debug("|cffffbb77GroupTypeChanged:|r solo")
             Cell.Fire("GroupTypeChanged", "solo")
         else
-            -- F.Debug("|cff00ff00Already solo, no group type change")
+            F.Debug("|cff00ff00Already solo, no group type change")
         end
 
         -- update Cell.unitButtons.raid.units
@@ -898,10 +898,87 @@ SlashCmdList["CELLDEBUG"] = function(msg)
         if count == 0 then print("  (empty)") end
     end
 
+    -- Check raid frames
+    local raidFrame = _G["CellRaidFrame"]
+    local combinedHeader = _G["CellRaidFrameHeader0"]
+
+    print("Raid Frames:")
+    if raidFrame then
+        print("  RaidFrame: EXISTS, IsVisible:", raidFrame:IsVisible(), "IsShown:", raidFrame:IsShown())
+        local x, y = raidFrame:GetCenter()
+        print("    Position (center):", x or "nil", y or "nil")
+    else
+        print("  RaidFrame: NOT FOUND")
+    end
+
+    if combinedHeader then
+        print("Combined Raid Header: EXISTS")
+        print("  NumButtons (#combinedHeader):", #combinedHeader)
+        print("  IsVisible:", combinedHeader:IsVisible(), "IsShown:", combinedHeader:IsShown())
+        print("  Checking first 5 buttons:")
+        for i = 1, 5 do
+            if combinedHeader[i] then
+                local unit = combinedHeader[i]:GetAttribute("unit")
+                local w, h = combinedHeader[i]:GetSize()
+                local isVis = combinedHeader[i]:IsVisible()
+                local isShown = combinedHeader[i]:IsShown()
+                local x, y = combinedHeader[i]:GetCenter()
+                print("    Button"..i..": Unit:", unit or "NONE", "Size:", w.."x"..h, "Vis:", isVis, "Shown:", isShown)
+                print("      Position:", x or "nil", y or "nil")
+            else
+                print("    Button"..i..": NIL")
+            end
+        end
+    else
+        print("Combined Raid Header: NOT FOUND")
+    end
+
+    -- Check separated raid headers
+    print("Separated Raid Headers:")
+    for i = 1, 8 do
+        local separatedHeader = _G["CellRaidFrameHeader"..i]
+        if separatedHeader then
+            print("  Group"..i.." Header: EXISTS")
+            print("    NumButtons:", #separatedHeader)
+            print("    IsVisible:", separatedHeader:IsVisible(), "IsShown:", separatedHeader:IsShown())
+            local x, y = separatedHeader:GetCenter()
+            print("    Position (center):", x or "nil", y or "nil")
+            print("    Checking first 3 buttons:")
+            for j = 1, 3 do
+                if separatedHeader[j] then
+                    local unit = separatedHeader[j]:GetAttribute("unit")
+                    local w, h = separatedHeader[j]:GetSize()
+                    local isVis = separatedHeader[j]:IsVisible()
+                    local isShown = separatedHeader[j]:IsShown()
+                    local bx, by = separatedHeader[j]:GetCenter()
+                    print("      Button"..j..": Unit:", unit or "NONE", "Size:", w.."x"..h, "Vis:", isVis, "Shown:", isShown)
+                    print("        Position:", bx or "nil", by or "nil")
+                else
+                    print("      Button"..j..": NIL")
+                end
+            end
+        else
+            print("  Group"..i.." Header: NOT FOUND")
+        end
+    end
+
     print("Group Info:")
     print("  IsInGroup:", IsInGroup())
+    print("  IsInRaid:", IsInRaid())
     print("  NumGroupMembers:", GetNumGroupMembers())
     print("  Cell.vars.groupType:", Cell.vars.groupType)
+
+    -- Check layout settings
+    if CellDB and CellDB["general"] and CellDB["general"]["layout"] then
+        local layoutName = CellDB["general"]["layout"]
+        print("  Current layout:", layoutName)
+        if CellDB["layouts"] and CellDB["layouts"][layoutName] then
+            local layout = CellDB["layouts"][layoutName]
+            if layout["main"] and layout["main"]["combineGroups"] ~= nil then
+                print("  combineGroups:", layout["main"]["combineGroups"])
+            end
+        end
+    end
 
     -- Check if group type is out of sync and fix it
     local actualGroupType

@@ -71,25 +71,125 @@ header:SetAttribute("unitsPerColumn", 5)
 header:SetAttribute("showPlayer", true)
 header:SetAttribute("showParty", true)
 
---! WotLK 3.3.5a: Button creation and pet button setup is now handled by Polyfills.lua
+--! WotLK 3.3.5a: SecureGroupHeaderTemplate doesn't create buttons automatically in WotLK
+--! Manually create 5 buttons for party members (player + 4 party members)
+for i = 1, 5 do
+    local buttonName = "CellPartyFrameMember" .. i
+    local playerButton = CreateFrame("Button", buttonName, header, "CellUnitButtonTemplate,SecureUnitButtonTemplate")
+    playerButton:SetID(i)
+    header[i] = playerButton
+
+    local unit
+    if i == 1 then
+        unit = "player"
+    else
+        unit = "party" .. (i - 1)
+    end
+
+    playerButton:SetAttribute("unit", unit)
+    RegisterUnitWatch(playerButton)
+
+    -- Create pet button
+    local petButton = CreateFrame("Button", buttonName.."Pet", playerButton, "CellUnitButtonTemplate")
+    petButton:SetIgnoreParentAlpha(true)
+    petButton:SetAttribute("toggleForVehicle", false)
+
+    local petUnit
+    if i == 1 then
+        petUnit = "pet"
+    else
+        petUnit = "partypet" .. (i - 1)
+    end
+    petButton:SetAttribute("unit", petUnit)
+
+    playerButton.petButton = petButton
+    SecureHandlerSetFrameRef(playerButton, "petButton", petButton)
+
+    -- for IterateAllUnitButtons
+    Cell.unitButtons.party["player"..i] = playerButton
+    Cell.unitButtons.party["pet"..i] = petButton
+
+    -- OmniCD
+    _G[buttonName] = playerButton
+end
+
+header:SetAttribute("startingIndex", 1)
+header:Show()
+
+-- Manually trigger UpdateButtonUnit for each button to populate Cell.unitButtons.party.units
+C_Timer.After(0.1, function()
+    if not header.UpdateButtonUnit then return end
+    for i = 1, 5 do
+        local button = header[i]
+        if button then
+            local unit = button:GetAttribute("unit")
+            if unit then
+                header:UpdateButtonUnit(button:GetName(), unit)
+            end
+        end
+    end
+end)
+
+-- Trigger layout update after button creation
+-- NOTE: This ensures buttons are sized correctly after initial load
+C_Timer.After(0.5, function()
+    if Cell and F and F.UpdateLayout and (Cell.vars.groupType == "party" or Cell.vars.groupType == "solo") then
+        F.UpdateLayout(Cell.vars.groupType)
+    end
+end)
 
 local function PartyFrame_UpdateLayout(layout, which)
-    -- F.Debug("|cffff8800=== PartyFrame_UpdateLayout START ===")
-    -- F.Debug("|cffff8800GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden, "|cffff8800Which:|r", which)
+    F.Debug("|cffff8800=== PartyFrame_UpdateLayout START ===")
+    F.Debug("|cffff8800GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden, "|cffff8800Which:|r", which)
+    F.Debug("|cffff8800Layout param:|r", layout, "|cffff8800CellDB exists:|r", CellDB ~= nil)
 
     -- visibility
-    if Cell.vars.groupType ~= "party" or Cell.vars.isHidden then
-        -- F.Debug("|cffff8800PartyFrame HIDING - GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden)
+    --! WotLK 3.3.5a: Party frame handles both "party" and "solo" group types
+    if (Cell.vars.groupType ~= "party" and Cell.vars.groupType ~= "solo") or Cell.vars.isHidden then
+        F.Debug("|cffff8800PartyFrame HIDING - GroupType:|r", Cell.vars.groupType, "|cffff8800IsHidden:|r", Cell.vars.isHidden)
         UnregisterAttributeDriver(partyFrame, "state-visibility")
         partyFrame:Hide()
         return
     else
-        -- F.Debug("|cffff8800PartyFrame SHOWING - Registering visibility driver")
-        RegisterAttributeDriver(partyFrame, "state-visibility", "[@raid1,exists] hide;[@party1,exists] show;[group:party] show;hide")
+        F.Debug("|cffff8800PartyFrame SHOWING - Registering visibility driver and calling Show()")
+        --! WotLK 3.3.5a: Simplified visibility driver - just show when groupType is party or solo
+        RegisterAttributeDriver(partyFrame, "state-visibility", "show")
+        partyFrame:Show()  --! WotLK 3.3.5a: Must explicitly call Show()
     end
+
+    --! WotLK 3.3.5a: Safety check for layout
+    if not layout or not CellDB or not CellDB["layouts"] or not CellDB["layouts"][layout] then
+        F.Debug("|cffff0000Layout not ready! layout:|r", layout or "NIL", "|cffff0000CellDB:|r", CellDB ~= nil, "|cffff0000CellDB.layouts:|r", CellDB and CellDB["layouts"] ~= nil)
+        -- Layout not ready yet, retry later
+        C_Timer.After(0.5, function()
+            local layoutName = CellDB["general"] and CellDB["general"]["layout"] or "default"
+            F.Debug("|cffff0000Retrying UpdateLayout with:|r", layoutName)
+            Cell.Fire("UpdateLayout", layoutName, which)
+        end)
+        return
+    end
+
+    F.Debug("|cffff8800Layout is ready, proceeding with update")
 
     -- update
     layout = CellDB["layouts"][layout]
+
+    --! WotLK 3.3.5a: Re-register buttons with unit watch when layout updates
+    if not which then
+        for i = 1, 5 do
+            if header[i] then
+                local unit = header[i]:GetAttribute("unit")
+                if unit then
+                    -- Re-register unit watch to ensure button visibility
+                    RegisterUnitWatch(header[i])
+                    -- Update button unit registration
+                    if header.UpdateButtonUnit then
+                        header:UpdateButtonUnit(header[i]:GetName(), unit)
+                    end
+                end
+            end
+        end
+    end
 
     -- anchor
     if not which or which == "main-arrangement" or which == "pet-arrangement" then
@@ -158,19 +258,47 @@ local function PartyFrame_UpdateLayout(layout, which)
         header:SetPoint(point)
         header:SetAttribute("point", headerPoint)
 
-        --! WotLK 3.3.5a: Button positioning is now handled by Polyfills.lua
+        --! WotLK 3.3.5a: SecureGroupHeaderTemplate doesn't position buttons automatically in WotLK
+        --! Manually position each button
+        for j = 1, 5 do
+            if header[j] then
+                header[j]:ClearAllPoints()
+
+                if j == 1 then
+                    -- First button anchors its corner to header
+                    header[j]:SetPoint(point, header, headerPoint, 0, 0)
+                else
+                    -- Subsequent buttons anchor to previous button
+                    if orientation == "vertical" then
+                        header[j]:SetPoint(point, header[j-1], playerAnchorPoint, 0, P.Scale(playerSpacing))
+                    else
+                        header[j]:SetPoint(point, header[j-1], playerAnchorPoint, P.Scale(playerSpacing), 0)
+                    end
+                end
+
+                -- Position pet button
+                if header[j].petButton then
+                    header[j].petButton:ClearAllPoints()
+                    if orientation == "vertical" then
+                        header[j].petButton:SetPoint(point, header[j], petAnchorPoint, P.Scale(petSpacing), 0)
+                    else
+                        header[j].petButton:SetPoint(point, header[j], petAnchorPoint, 0, P.Scale(petSpacing))
+                    end
+                end
+            end
+        end
 
         header:SetAttribute("unitsPerColumn", 5)
     end
 
     if not which or strfind(which, "size$") or strfind(which, "power$") or which == "barOrientation" or which == "powerFilter" then
-        -- F.Debug("|cffff8800Setting button sizes - NumButtons in header:|r", #header)
+        F.Debug("|cffff8800Setting button sizes - NumButtons in header:|r", #header)
         for i, playerButton in ipairs(header) do
             local petButton = playerButton.petButton
 
             if not which or strfind(which, "size$") then
                 local width, height = unpack(layout["main"]["size"])
-                -- F.Debug("|cffff8800Button"..i.." - Setting size:|r", width, "x", height, "|cffff8800Unit:|r", playerButton:GetAttribute("unit") or "NO UNIT")
+                F.Debug("|cffff8800Button"..i.." - Setting size:|r", width, "x", height, "|cffff8800Unit:|r", playerButton:GetAttribute("unit") or "NO UNIT")
                 P.Size(playerButton, width, height)
                 header:SetAttribute("buttonWidth", P.Scale(width))
                 header:SetAttribute("buttonHeight", P.Scale(height))

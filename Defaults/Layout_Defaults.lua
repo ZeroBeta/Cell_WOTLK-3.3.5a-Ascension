@@ -244,7 +244,7 @@ Cell.defaults.layout = {
             ["hideDamager"] = false,
             ["position"] = {"TOPLEFT", "button", "TOPLEFT", 0, 0},
             ["size"] = {11, 11},
-            ["roleTexture"] = {"default", "Interface\\AddOns\\ElvUI\\Core\\Media\\Textures\\Tank.tga", "Interface\\AddOns\\ElvUI\\Core\\Media\\Textures\\Healer.tga", "Interface\\AddOns\\ElvUI\\Core\\Media\\Textures\\DPS.tga"},
+            ["roleTexture"] = {"default", "Interface\\AddOns\\Cell_Wrath\\Media\\Roles\\Default_TANK.tga", "Interface\\AddOns\\Cell_Wrath\\Media\\Roles\\Default_HEALER.tga", "Interface\\AddOns\\Cell_Wrath\\Media\\Roles\\Default_DAMAGER.tga"},
             ["frameLevel"] = 5,
         }, -- 7
         {
