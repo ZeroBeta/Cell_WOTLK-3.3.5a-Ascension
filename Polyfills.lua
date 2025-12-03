@@ -155,6 +155,55 @@ end
 
 
 
+-- Texture:SetGradient polyfill to support CreateColor tables on 3.3.5a
+do
+    local tex = UIParent:CreateTexture()
+    local mt = getmetatable(tex)
+
+    if mt and mt.__index then
+        local origSetGradient = mt.__index.SetGradient
+        local origSetGradientAlpha = mt.__index.SetGradientAlpha
+
+        local function unpackColor(c)
+            if type(c) ~= "table" then return end
+            if c.GetRGBA then
+                return c:GetRGBA()
+            end
+            return c.r, c.g, c.b, c.a or 1
+        end
+
+        -- accept either (orientation, color1, color2) or the classic numeric signature
+        if origSetGradient and not mt.__index._CellSetGradientPolyfill then
+            function mt.__index:SetGradient(orientation, ...)
+                local c1, c2 = ...
+                if type(c1) == "table" and type(c2) == "table" then
+                    local r1, g1, b1, a1 = unpackColor(c1)
+                    local r2, g2, b2, a2 = unpackColor(c2)
+                    if origSetGradientAlpha then
+                        return origSetGradientAlpha(self, orientation, r1, g1, b1, a1, r2, g2, b2, a2)
+                    end
+                end
+                return origSetGradient(self, orientation, ...)
+            end
+            mt.__index._CellSetGradientPolyfill = true
+        end
+
+        if origSetGradientAlpha and not mt.__index._CellSetGradientAlphaPolyfill then
+            function mt.__index:SetGradientAlpha(orientation, ...)
+                local args = {...}
+                if #args == 2 and type(args[1]) == "table" and type(args[2]) == "table" then
+                    local r1, g1, b1, a1 = unpackColor(args[1])
+                    local r2, g2, b2, a2 = unpackColor(args[2])
+                    return origSetGradientAlpha(self, orientation, r1, g1, b1, a1, r2, g2, b2, a2)
+                end
+                return origSetGradientAlpha(self, orientation, ...)
+            end
+            mt.__index._CellSetGradientAlphaPolyfill = true
+        end
+    end
+end
+
+
 -- Mouse click / motion polyfill for Wrath
 do
     local region = CreateFrame("Frame")
