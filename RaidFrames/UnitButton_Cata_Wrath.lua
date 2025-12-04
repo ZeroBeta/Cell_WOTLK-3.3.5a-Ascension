@@ -70,6 +70,7 @@ local absorbEnabled, absorbInvertColor
 local shieldEnabled, overshieldEnabled, overshieldReverseFillEnabled
 
 local POWER_WORD_SHIELD_NAME = GetSpellInfo(17) or "Power Word: Shield"
+local WEAKENED_SOUL_NAME = GetSpellInfo(6788) or "Weakened Soul"
 
 local function IsPowerWordShield(spellId, spellName)
     if spellName and spellName == POWER_WORD_SHIELD_NAME then
@@ -79,6 +80,21 @@ local function IsPowerWordShield(spellId, spellName)
     if spellId then
         local fetched = GetSpellInfo(spellId)
         if fetched and fetched == POWER_WORD_SHIELD_NAME then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function IsWeakenedSoul(spellId, spellName)
+    if spellName and spellName == WEAKENED_SOUL_NAME then
+        return true
+    end
+
+    if spellId then
+        local fetched = GetSpellInfo(spellId)
+        if fetched and fetched == WEAKENED_SOUL_NAME then
             return true
         end
     end
@@ -1147,7 +1163,7 @@ local function UnitButton_UpdateDebuffs(self)
                 end
             end
 
-            if enabledIndicators["powerWordShield"] and spellId == 6788 then
+            if enabledIndicators["powerWordShield"] and IsWeakenedSoul(spellId, name) then
                 wsFound = true
                 self.indicators.powerWordShield:SetWeakenedSoulCooldown(expirationTime - duration, duration, source == "player")
             end

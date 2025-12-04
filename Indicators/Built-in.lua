@@ -2233,11 +2233,11 @@ function I.CreatePowerWordShield(parent)
         local height = parent:GetHeight() or 0
         if height <= 0 then height = P.Scale(20) end
 
-        -- place bars stacked on the right side
-        self:SetWidth(width * 2)
+        -- place bars overlaid on the right side
+        self:SetWidth(width)
         self:SetHeight(height)
 
-        -- PW:S
+        -- PW:S (bottom-to-top on the right edge)
         if self.shieldExpires > now and self.shieldDuration > 0 then
             local pct = (self.shieldExpires - now) / self.shieldDuration
             local barHeight = height * pct
@@ -2250,7 +2250,7 @@ function I.CreatePowerWordShield(parent)
             shieldBar:Hide()
         end
 
-        -- Weakened Soul
+        -- Weakened Soul (bottom-to-top, overlaid on top of PW:S)
         if self.wsExpires > now and self.wsDuration > 0 then
             local pct = (self.wsExpires - now) / self.wsDuration
             local barHeight = height * pct
@@ -2258,7 +2258,7 @@ function I.CreatePowerWordShield(parent)
             wsBar:ClearAllPoints()
             wsBar:SetWidth(width)
             wsBar:SetHeight(barHeight)
-            wsBar:SetPoint("TOPRIGHT", self, "TOPRIGHT")
+            wsBar:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT")
         else
             wsBar:Hide()
         end
@@ -2277,7 +2277,7 @@ function I.CreatePowerWordShield(parent)
     function powerWordShield:UpdatePixelPerfect()
         local bw = self.barWidth or 2
         local bh = parent:GetHeight() or 0
-        self:_SetSize(P.Scale((bw > 0 and bw or 4) * 2), (bh > 0 and bh or P.Scale(20)))
+        self:_SetSize(P.Scale((bw > 0 and bw or 4)), (bh > 0 and bh or P.Scale(20)))
     end
 
     function powerWordShield:SetShape()
