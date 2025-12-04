@@ -6,6 +6,7 @@ local P = Cell.pixelPerfectFuncs
 local powerFilters = Cell.CreateFrame("CellOptionsFrame_PowerFilters", Cell.frames.layoutsTab, 285, 205)
 Cell.frames.powerFilters = powerFilters
 powerFilters:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 50)
+powerFilters:SetPoint("BOTTOMRIGHT", Cell.frames.layoutsTab, "BOTTOMRIGHT", P.Scale(-5), P.Scale(5))
 
 local selectedLayout, selectedLayoutTable
 
@@ -230,8 +231,14 @@ end
 -------------------------------------------------
 powerFilters:SetScript("OnHide", function()
     powerFilters:Hide()
-    Cell.frames.layoutsTab.mask:Hide()
-    Cell.frames.layoutsTab.powerFilterBtn:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 1)
+    if Cell.frames.layoutsTab.mask then
+        Cell.frames.layoutsTab.mask:Hide()
+    end
+
+    local powerFilterBtn = Cell.frames.layoutsTab.powerFilterBtn
+    if powerFilterBtn then
+        powerFilterBtn:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 1)
+    end
 end)
 
 local init
@@ -245,13 +252,21 @@ function F.ShowPowerFilters(l, lt)
         CreateFilters()
     end
 
+    local powerFilterBtn = Cell.frames.layoutsTab.powerFilterBtn
+
     if powerFilters:IsShown() then
         powerFilters:Hide()
-        Cell.frames.layoutsTab.powerFilterBtn:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 2)
+        if powerFilterBtn then
+            powerFilterBtn:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 2)
+        end
     else
         powerFilters:Show()
-        Cell.frames.layoutsTab.powerFilterBtn:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 50)
-        Cell.frames.layoutsTab.mask:Show()
+        if powerFilterBtn then
+            powerFilterBtn:SetFrameLevel(Cell.frames.layoutsTab:GetFrameLevel() + 50)
+        end
+        if Cell.frames.layoutsTab.mask then
+            Cell.frames.layoutsTab.mask:Show()
+        end
 
         -- load db
         druidF:Load()

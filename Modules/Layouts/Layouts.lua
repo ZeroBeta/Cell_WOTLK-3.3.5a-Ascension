@@ -399,10 +399,11 @@ local function UpdateLayoutPreview()
         for i, group in ipairs(shownGroups) do
             local header = layoutPreview.separatedHeaders[group]
             header:ClearAllPoints()
+            local unitsPerColumn = min(selectedLayoutTable["main"]["unitsPerColumn"], 5)
 
             if selectedLayoutTable["main"]["orientation"] == "vertical" then
-                header:SetSize(P.Scale(selectedLayoutTable["main"]["size"][1]), P.Scale(selectedLayoutTable["main"]["size"][2]) * 5 + abs(unitSpacing) * 4)
-                for j = 1, 5 do
+                header:SetSize(P.Scale(selectedLayoutTable["main"]["size"][1]), P.Scale(selectedLayoutTable["main"]["size"][2]) * unitsPerColumn + abs(unitSpacing) * (unitsPerColumn - 1))
+                for j = 1, unitsPerColumn do
                     P.Size(header[j], selectedLayoutTable["main"]["size"][1], selectedLayoutTable["main"]["size"][2])
                     header[j]:ClearAllPoints()
 
@@ -427,8 +428,8 @@ local function UpdateLayoutPreview()
                     end
                 end
             else
-                header:SetSize(P.Scale(selectedLayoutTable["main"]["size"][1]) * 5 + abs(unitSpacing) * 4, P.Scale(selectedLayoutTable["main"]["size"][2]))
-                for j = 1, 5 do
+                header:SetSize(P.Scale(selectedLayoutTable["main"]["size"][1]) * unitsPerColumn + abs(unitSpacing) * (unitsPerColumn - 1), P.Scale(selectedLayoutTable["main"]["size"][2]))
+                for j = 1, unitsPerColumn do
                     P.Size(header[j], selectedLayoutTable["main"]["size"][1], selectedLayoutTable["main"]["size"][2])
                     header[j]:ClearAllPoints()
 
@@ -1979,7 +1980,7 @@ local rcSlider, groupSpacingSlider, unitsSlider
 local orientationDropdown, anchorDropdown, spacingXSlider, spacingYSlider
 
 local sameSizeAsMainCB, sameArrangementAsMainCB
-local combineGroupsCB, sortByRoleCB, roleOrderWidget, hideSelfCB
+local hideSelfCB
 local showNpcCB, separateNpcCB, spotlightCB, hidePlaceholderCB, spotlightOrientationDropdown
 local soloPetCB, partyPetsCB, partyPetsDetachedCB, raidPetsCB
 
@@ -2043,74 +2044,14 @@ local function UpdateSliderStatus()
         rcSlider:SetLabel(L["Group Rows"])
     end
 
-    if selectedLayoutTable["main"]["combineGroups"] then
-        unitsSlider:Show()
-        groupSpacingSlider:Hide()
-    else
-        unitsSlider:Hide()
-        groupSpacingSlider:Show()
-    end
+    unitsSlider:Hide()
+    groupSpacingSlider:Show()
 
     if selectedLayoutTable["main"]["maxColumns"] == 8 then
         groupSpacingSlider:SetEnabled(false)
     else
         groupSpacingSlider:SetEnabled(true)
     end
-end
-
--- TODO: move to Widgets.lua
-local function CreateRoleOrderWidget(parent)
-    local f = CreateFrame("Frame", nil, parent)
-    P.Size(f, 66, 20)
-
-    local buttons = {}
-    for _, role in pairs({"TANK", "HEALER", "DAMAGER"}) do
-        buttons[role] = Cell.CreateButton(f, nil, "accent-hover", {20, 20})
-        buttons[role]:SetTexture(F.GetDefaultRoleIcon(role), {16, 16}, {"CENTER", 0, 0}, false, true)
-        buttons[role]._role = role
-
-        buttons[role]:SetMovable(true)
-        buttons[role]:RegisterForDrag("LeftButton")
-
-        buttons[role]:SetScript("OnDragStart", function(self)
-            self:SetFrameStrata("TOOLTIP")
-            self:StartMoving()
-            self:SetUserPlaced(false)
-        end)
-
-        buttons[role]:SetScript("OnDragStop", function(self)
-            self:StopMovingOrSizing()
-            self:SetFrameStrata("LOW")
-            -- self:Hide() --! Hide() will cause OnDragStop trigger TWICE!!!
-            C_Timer.After(0.05, function()
-                local b = F.GetMouseFocus()
-                if b ~= self and b and b._role then
-                    local roleToIndex = F.ConvertTable(selectedLayoutTable["main"]["roleOrder"])
-                    -- print(self._role, "->", b._role)
-
-                    local oldIndex = roleToIndex[self._role]
-                    tremove(selectedLayoutTable["main"]["roleOrder"], oldIndex)
-
-                    local newIndex = roleToIndex[b._role]
-                    tinsert(selectedLayoutTable["main"]["roleOrder"], newIndex, self._role)
-
-                    Cell.Fire("UpdateLayout", selectedLayout, "sort")
-                end
-                f:Load(selectedLayoutTable["main"]["roleOrder"])
-            end)
-        end)
-    end
-
-    function f:Load(t)
-        for i, role in pairs(t) do
-            buttons[role]:SetFrameStrata("DIALOG")
-            buttons[role]:Show()
-            buttons[role]:ClearAllPoints()
-            buttons[role]:SetPoint("TOPLEFT", (i-1)*(P.Scale(20)+P.Scale(3)), 0)
-        end
-    end
-
-    return f
 end
 
 local function CreateLayoutSetupPane()
@@ -2300,40 +2241,12 @@ local function CreateLayoutSetupPane()
     pages.main:SetAllPoints(layoutSetupPane)
     pages.main:Hide()
 
-    -- combine groups
-    combineGroupsCB = Cell.CreateCheckButton(pages.main, L["Combine Groups"].." ("..L["Raid"]..")", function(checked, self)
-        selectedLayoutTable["main"]["combineGroups"] = checked
-        Cell.Fire("UpdateLayout", selectedLayout, "header")
-        UpdateSliderStatus()
-        -- preview
-        UpdateLayoutPreview()
-    end)
-    combineGroupsCB:SetPoint("TOPLEFT", 5, -27)
-    Cell.RegisterForCloseDropdown(combineGroupsCB)
-
-    -- sort by role
-    sortByRoleCB = Cell.CreateCheckButton(pages.main, L["Sort By Role"], function(checked, self)
-        selectedLayoutTable["main"]["sortByRole"] = checked
-        if checked then
-            roleOrderWidget:Show()
-        else
-            roleOrderWidget:Hide()
-        end
-        Cell.Fire("UpdateLayout", selectedLayout, "sort")
-    end, L["Sort By Role"], "|cffffb5c5"..L["Left-Drag"]..":|r "..L["change the order"]) -- L["%s is required"]:format("|cffffb5c5"..L["Combine Groups"].."|r").." ("..L["Raid"]..")"
-    sortByRoleCB:SetPoint("TOPLEFT", combineGroupsCB, "BOTTOMLEFT", 0, -10)
-    Cell.RegisterForCloseDropdown(sortByRoleCB)
-
-    -- role order
-    roleOrderWidget = CreateRoleOrderWidget(pages.main)
-    roleOrderWidget:SetPoint("TOPLEFT", sortByRoleCB, sortByRoleCB.label:GetWidth()+25, 3)
-
     -- hide self
     hideSelfCB = Cell.CreateCheckButton(pages.main, L["Hide Self"].." ("..L["Party"]..")", function(checked, self)
         selectedLayoutTable["main"]["hideSelf"] = checked
         Cell.Fire("UpdateLayout", selectedLayout, "hideSelf")
     end)
-    hideSelfCB:SetPoint("TOPLEFT", sortByRoleCB, "BOTTOMLEFT", 0, -10)
+    hideSelfCB:SetPoint("TOPLEFT", 5, -27)
 
     -- rows/columns
     rcSlider = Cell.CreateSlider("", pages.main, 1, 8, 117, 1, function(value)
@@ -2668,23 +2581,6 @@ local function CreateBarOrientationPane()
 end
 
 -------------------------------------------------
--- misc
--------------------------------------------------
-local function CreateMiscPane()
-    local miscPane = Cell.CreateTitledPane(layoutsTab, L["Misc"], 205, 80)
-    miscPane:SetPoint("TOPLEFT", 222, -445)
-
-    local powerFilterBtn = Cell.CreateButton(miscPane, L["Power Bar Filters"], "accent-hover", {195, 20})
-    Cell.frames.layoutsTab.powerFilterBtn = powerFilterBtn
-    powerFilterBtn:SetPoint("TOPLEFT", 5, -27)
-    powerFilterBtn:SetScript("OnClick", function ()
-        F.ShowPowerFilters(selectedLayout, selectedLayoutTable)
-    end)
-
-    Cell.frames.powerFilters:SetPoint("BOTTOMRIGHT", powerFilterBtn, "TOPRIGHT", 0, P.Scale(5))
-end
-
--------------------------------------------------
 -- tips
 -------------------------------------------------
 local tips = layoutsTab:CreateFontString(nil, "OVERLAY", "CELL_FONT_WIDGET")
@@ -2761,6 +2657,14 @@ LoadLayoutDB = function(layout, dontShowPreview)
 
     UpdateSliderStatus()
 
+    -- force separated groups now that the combine option is removed
+    if selectedLayoutTable["main"]["combineGroups"] then
+        selectedLayoutTable["main"]["combineGroups"] = false
+        if selectedLayout == Cell.vars.currentLayout then
+            Cell.Fire("UpdateLayout", selectedLayout, "header")
+        end
+    end
+
     -- maxColumns
     rcSlider:SetValue(selectedLayoutTable["main"]["maxColumns"])
 
@@ -2774,14 +2678,6 @@ LoadLayoutDB = function(layout, dontShowPreview)
 
     -- pages
     LoadPageDB(selectedPage)
-    combineGroupsCB:SetChecked(selectedLayoutTable["main"]["combineGroups"])
-    sortByRoleCB:SetChecked(selectedLayoutTable["main"]["sortByRole"])
-    if selectedLayoutTable["main"]["sortByRole"] then
-        roleOrderWidget:Show()
-    else
-        roleOrderWidget:Hide()
-    end
-    roleOrderWidget:Load(selectedLayoutTable["main"]["roleOrder"])
     hideSelfCB:SetChecked(selectedLayoutTable["main"]["hideSelf"])
     soloPetCB:SetChecked(selectedLayoutTable["pet"]["soloEnabled"])
     partyPetsCB:SetChecked(selectedLayoutTable["pet"]["partyEnabled"])
@@ -2978,7 +2874,6 @@ local function ShowTab(tab)
             CreateGroupFilterPane()
             CreateLayoutSetupPane()
             CreateBarOrientationPane()
-            CreateMiscPane()
 
             LoadLayoutDropdown()
             LoadAutoSwitchDropdowns()

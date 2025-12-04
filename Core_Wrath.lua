@@ -101,6 +101,13 @@ function F.UpdateLayout(layoutGroupType)
             Cell.vars.currentLayoutTable = CellDB["layouts"][layout]
         end
 
+        -- keep raid groups separated now that combine option is removed
+        if Cell.vars.currentLayoutTable
+            and Cell.vars.currentLayoutTable["main"]
+            and Cell.vars.currentLayoutTable["main"]["combineGroups"] then
+            Cell.vars.currentLayoutTable["main"]["combineGroups"] = false
+        end
+
         F.IterateAllUnitButtons(function(b)
             b._indicatorsReady = nil
         end, true)
