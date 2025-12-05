@@ -6,7 +6,7 @@ local L = Cell.L
 local F = Cell.funcs
 ---@type PixelPerfectFuncs
 local P = Cell.pixelPerfectFuncs
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 
 -----------------------------------------
 -- Color
@@ -1110,7 +1110,9 @@ function Cell.CreateSlider(name, parent, low, high, width, step, onValueChangedF
     local tooltips = {...}
     local slider = CreateFrame("Slider", nil, parent, "BackdropTemplate")
     slider:SetValueStep(step)
-    slider:SetObeyStepOnDrag(true)
+    if slider.SetObeyStepOnDrag then
+        slider:SetObeyStepOnDrag(true)
+    end
     slider:SetOrientation("HORIZONTAL")
     P.Size(slider, width, 10)
     local unit = isPercentage and "%" or ""

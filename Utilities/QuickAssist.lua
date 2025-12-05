@@ -19,7 +19,7 @@ local UnitClassBase = function(unit)
 end
 
 local LGI = LibStub:GetLibrary("LibGroupInfo")
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 local LibTranslit = LibStub("LibTranslit-1.0")
 
 local quickAssistTable, layoutTable, styleTable, spellTable, quickAssistReady

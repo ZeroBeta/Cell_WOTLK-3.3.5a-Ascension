@@ -5,7 +5,7 @@ local B = Cell.bFuncs
 local A = Cell.animations
 local P = Cell.pixelPerfectFuncs
 
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 
 local placeholders, assignmentButtons = {}, {}
 local menu, target, targettarget, focus, focustarget, unit, unitname, unitpet, unittarget, tank, boss1target, clear

@@ -4,7 +4,7 @@ local F = Cell.funcs
 local U = Cell.uFuncs
 local A = Cell.animations
 local P = Cell.pixelPerfectFuncs
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 
 -- ----------------------------------------------------------------------- --
 --                                 defaults                                --

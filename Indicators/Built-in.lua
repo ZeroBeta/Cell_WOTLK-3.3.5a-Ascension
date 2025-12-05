@@ -9,7 +9,7 @@ local A = Cell.animations
 ---@type PixelPerfectFuncs
 local P = Cell.pixelPerfectFuncs
 
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 local LibTranslit = LibStub("LibTranslit-1.0")
 
 local function noop() end

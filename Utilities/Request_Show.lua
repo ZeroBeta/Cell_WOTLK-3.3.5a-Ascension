@@ -5,7 +5,7 @@ local F = Cell.funcs
 local I = Cell.iFuncs
 local P = Cell.pixelPerfectFuncs
 
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 local Comm = LibStub:GetLibrary("AceComm-3.0")
 
 -------------------------------------------------

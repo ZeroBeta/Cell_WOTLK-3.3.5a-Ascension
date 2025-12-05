@@ -4,7 +4,7 @@ local F = Cell.funcs
 local I = Cell.iFuncs
 local U = Cell.uFuncs
 local P = Cell.pixelPerfectFuncs
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 local A = Cell.animations
 
 local UnitIsConnected = UnitIsConnected

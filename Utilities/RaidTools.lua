@@ -3,7 +3,7 @@ local L = Cell.L
 local F = Cell.funcs
 local U = Cell.uFuncs
 local P = Cell.pixelPerfectFuncs
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 
 -------------------------------------------------
 -- raid tools

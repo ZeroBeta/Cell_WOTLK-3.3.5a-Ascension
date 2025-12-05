@@ -5,8 +5,8 @@ https://www.wowace.com/projects/libbuttonglow-1-0
 
 -- luacheck: globals CreateFromMixins ObjectPoolMixin CreateTexturePool CreateFramePool
 
-local MAJOR_VERSION = "LibCustomGlow-1.0"
-local MINOR_VERSION = 21
+local MAJOR_VERSION = "LibCustomGlow-1.0-Cell"
+local MINOR_VERSION = 99
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub.") end
 local lib, oldversion = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
 if not lib then return end
@@ -34,13 +34,28 @@ lib.startList = {}
 lib.stopList = {}
 
 local GlowParent = UIParent
+
+-- WotLK: CreateMaskTexture doesn't exist, so we create stub objects
 local GlowMaskPool = {
     createFunc = function(self)
-        return self.parent:CreateMaskTexture()
+        -- WotLK: CreateMaskTexture doesn't exist, return a stub object
+        if self.parent.CreateMaskTexture then
+            return self.parent:CreateMaskTexture()
+        else
+            -- Return a stub object with minimal methods
+            return {
+                Hide = function() end,
+                Show = function() end,
+                ClearAllPoints = function() end,
+                SetPoint = function() end,
+                SetSize = function() end,
+                SetTexture = function() end,
+            }
+        end
     end,
     resetFunc = function(self, mask)
-        mask:Hide()
-        mask:ClearAllPoints()
+        if mask.Hide then mask:Hide() end
+        if mask.ClearAllPoints then mask:ClearAllPoints() end
     end,
     AddObject = function(self, object)
         local dummy = true
@@ -80,20 +95,46 @@ local GlowMaskPool = {
 GlowMaskPool:Init(GlowParent)
 
 local TexPoolResetter = function(pool,tex)
-    local maskNum = tex:GetNumMaskTextures()
-    for i = maskNum , 1, -1 do
-        tex:RemoveMaskTexture(tex:GetMaskTexture(i))
+    -- Mask textures API may not exist in WotLK
+    if tex.GetNumMaskTextures then
+        local maskNum = tex:GetNumMaskTextures()
+        for i = maskNum , 1, -1 do
+            tex:RemoveMaskTexture(tex:GetMaskTexture(i))
+        end
     end
     tex:Hide()
     tex:ClearAllPoints()
 end
-local GlowTexPool = CreateTexturePool(GlowParent ,"ARTWORK",7,nil,TexPoolResetter)
+
+-- Custom texture pool for WotLK compatibility
+local GlowTexPool = {
+    parent = GlowParent,
+    inactive = {},
+    active = {},
+    count = 0,
+}
+function GlowTexPool:Acquire()
+    local tex = tremove(self.inactive)
+    if not tex then
+        self.count = self.count + 1
+        tex = self.parent:CreateTexture(nil, "ARTWORK", nil, 7)
+    end
+    self.active[tex] = true
+    return tex
+end
+function GlowTexPool:Release(tex)
+    if self.active[tex] then
+        self.active[tex] = nil
+        TexPoolResetter(self, tex)
+        tinsert(self.inactive, tex)
+    end
+end
 lib.GlowTexPool = GlowTexPool
 
 local FramePoolResetter = function(framePool,frame)
     frame:SetScript("OnUpdate",nil)
     local parent = frame:GetParent()
-    if parent[frame.name] then
+    if parent and frame.name and parent[frame.name] then
         parent[frame.name] = nil
     end
     if frame.textures then
@@ -118,7 +159,30 @@ local FramePoolResetter = function(framePool,frame)
     frame:Hide()
     frame:ClearAllPoints()
 end
-local GlowFramePool = CreateFramePool("Frame",GlowParent,nil,FramePoolResetter)
+
+-- Custom frame pool for WotLK compatibility
+local GlowFramePool = {
+    parent = GlowParent,
+    inactive = {},
+    active = {},
+    count = 0,
+}
+function GlowFramePool:Acquire()
+    local frame = tremove(self.inactive)
+    if not frame then
+        self.count = self.count + 1
+        frame = CreateFrame("Frame", nil, self.parent)
+    end
+    self.active[frame] = true
+    return frame
+end
+function GlowFramePool:Release(frame)
+    if self.active[frame] then
+        self.active[frame] = nil
+        FramePoolResetter(self, frame)
+        tinsert(self.inactive, frame)
+    end
+end
 lib.GlowFramePool = GlowFramePool
 
 local function addFrameAndTex(r,color,name,key,N,xOffset,yOffset,texture,texCoord,desaturated,frameLevel)
@@ -309,7 +373,10 @@ function lib.PixelGlow_Start(r,color,N,frequency,length,th,xOffset,yOffset,borde
             f.bg:SetParent(f)
             f.bg:SetAllPoints(f)
             f.bg:SetDrawLayer("ARTWORK",6)
-            f.bg:AddMaskTexture(f.masks[2])
+            -- WotLK: AddMaskTexture may not exist
+            if f.bg.AddMaskTexture then
+                f.bg:AddMaskTexture(f.masks[2])
+            end
         end
     else
         if f.bg then
@@ -322,8 +389,11 @@ function lib.PixelGlow_Start(r,color,N,frequency,length,th,xOffset,yOffset,borde
         end
     end
     for _,tex in pairs(f.textures) do
-        if tex:GetNumMaskTextures() < 1 then
-            tex:AddMaskTexture(f.masks[1])
+        -- WotLK: GetNumMaskTextures and AddMaskTexture may not exist
+        if tex.GetNumMaskTextures and tex.AddMaskTexture then
+            if tex:GetNumMaskTextures() < 1 then
+                tex:AddMaskTexture(f.masks[1])
+            end
         end
     end
     f.timer = f.timer or 0
@@ -359,7 +429,7 @@ lib.stopList["Pixel Glow"] = lib.PixelGlow_Stop
 --Autocast Glow Functions--
 local function acUpdate(self,elapsed)
     local width,height = self:GetSize()
-    if width ~= self.info.width or height ~= self.info.height then
+    if width ~= self.info.width or height ~= self.info.height or not self.info.space then
         if width*height == 0 then return end -- Avoid division by zero
         self.info.width = width
         self.info.height = height
@@ -462,51 +532,55 @@ local function ButtonGlowResetter(framePool,frame)
     frame:Hide()
     frame:ClearAllPoints()
 end
-local ButtonGlowPool = CreateFramePool("Frame",GlowParent,nil,ButtonGlowResetter)
+-- Custom ButtonGlowPool for WotLK compatibility
+local ButtonGlowPool = {
+    parent = GlowParent,
+    inactive = {},
+    active = {},
+    count = 0,
+}
+function ButtonGlowPool:Acquire()
+    local frame = tremove(self.inactive)
+    local isNew = false
+    if not frame then
+        self.count = self.count + 1
+        frame = CreateFrame("Frame", nil, self.parent)
+        isNew = true
+    end
+    self.active[frame] = true
+    return frame, isNew
+end
+function ButtonGlowPool:Release(frame)
+    if self.active[frame] then
+        self.active[frame] = nil
+        ButtonGlowResetter(self, frame)
+        tinsert(self.inactive, frame)
+    end
+end
 lib.ButtonGlowPool = ButtonGlowPool
 
 local function CreateScaleAnim(group, target, order, duration, x, y, delay)
-    local scale = group:CreateAnimation("Scale")
-    scale:SetChildKey(target)
-    scale:SetOrder(order)
-    scale:SetDuration(duration)
-    scale:SetScale(x, y)
-
-    if delay then
-        scale:SetStartDelay(delay)
-    end
+    -- WotLK doesn't have SetChildKey, so we skip complex animations
+    -- This function is now a no-op for WotLK compatibility
 end
 
 local function CreateAlphaAnim(group, target, order, duration, fromAlpha, toAlpha, delay, appear)
-    local alpha = group:CreateAnimation("Alpha")
-    alpha:SetChildKey(target)
-    alpha:SetOrder(order)
-    alpha:SetDuration(duration)
-    alpha:SetFromAlpha(fromAlpha)
-    alpha:SetToAlpha(toAlpha)
-    if delay then
-        alpha:SetStartDelay(delay)
-    end
-    if appear then
-        table.insert(group.appear, alpha)
-    else
-        table.insert(group.fade, alpha)
-    end
+    -- WotLK doesn't have SetChildKey, so we skip complex animations
+    -- This function is now a no-op for WotLK compatibility
 end
 
 local function AnimIn_OnPlay(group)
     local frame = group:GetParent()
     local frameWidth, frameHeight = frame:GetSize()
-    frame.spark:SetSize(frameWidth, frameHeight)
-    frame.spark:SetAlpha(not(frame.color) and 1.0 or 0.3*frame.color[4])
-    frame.innerGlow:SetSize(frameWidth / 2, frameHeight / 2)
-    frame.innerGlow:SetAlpha(not(frame.color) and 1.0 or frame.color[4])
-    frame.innerGlowOver:SetAlpha(not(frame.color) and 1.0 or frame.color[4])
-    frame.outerGlow:SetSize(frameWidth * 2, frameHeight * 2)
+    -- WotLK simplified: just show the ants texture
+    frame.spark:SetAlpha(0)
+    frame.innerGlow:SetAlpha(0)
+    frame.innerGlowOver:SetAlpha(0)
+    frame.outerGlow:SetSize(frameWidth, frameHeight)
     frame.outerGlow:SetAlpha(not(frame.color) and 1.0 or frame.color[4])
-    frame.outerGlowOver:SetAlpha(not(frame.color) and 1.0 or frame.color[4])
+    frame.outerGlowOver:SetAlpha(0)
     frame.ants:SetSize(frameWidth * 0.85, frameHeight * 0.85)
-    frame.ants:SetAlpha(0)
+    frame.ants:SetAlpha(not(frame.color) and 1.0 or frame.color[4])
     frame:Show()
 end
 
@@ -515,7 +589,6 @@ local function AnimIn_OnFinished(group)
     local frameWidth, frameHeight = frame:GetSize()
     frame.spark:SetAlpha(0)
     frame.innerGlow:SetAlpha(0)
-    frame.innerGlow:SetSize(frameWidth, frameHeight)
     frame.innerGlowOver:SetAlpha(0.0)
     frame.outerGlow:SetSize(frameWidth, frameHeight)
     frame.outerGlowOver:SetAlpha(0.0)
@@ -525,7 +598,6 @@ end
 
 local function AnimIn_OnStop(group)
     local frame = group:GetParent()
-    local frameWidth, frameHeight = frame:GetSize()
     frame.spark:SetAlpha(0)
     frame.innerGlow:SetAlpha(0)
     frame.innerGlowOver:SetAlpha(0.0)
@@ -533,16 +605,16 @@ local function AnimIn_OnStop(group)
 end
 
 local function bgHide(self)
-    if self.animOut:IsPlaying() then
-        self.animOut:Stop()
+    if self.animOut and self.animOut.playing then
+        self.animOut.playing = false
         ButtonGlowPool:Release(self)
     end
 end
 
 local function bgUpdate(self, elapsed)
     AnimateTexCoords(self.ants, 256, 256, 48, 48, 22, elapsed, self.throttle);
-    local cooldown = self:GetParent().cooldown;
-    if(cooldown and cooldown:IsShown() and cooldown:GetCooldownDuration() > 3000) then
+    local cooldown = self:GetParent() and self:GetParent().cooldown;
+    if(cooldown and cooldown:IsShown() and cooldown.GetCooldownDuration and cooldown:GetCooldownDuration() > 3000) then
         self:SetAlpha(0.5);
     else
         self:SetAlpha(1.0);
@@ -592,33 +664,42 @@ local function configureButtonGlow(f,alpha)
     f.ants:SetAlpha(0)
     f.ants:SetTexture([[Interface\SpellActivationOverlay\IconAlertAnts]])
 
-    f.animIn = f:CreateAnimationGroup()
-    f.animIn.appear = {}
-    f.animIn.fade = {}
-    CreateScaleAnim(f.animIn, "spark",          1, 0.2, 1.5, 1.5)
-    CreateAlphaAnim(f.animIn, "spark",          1, 0.2, 0, alpha, nil, true)
-    CreateScaleAnim(f.animIn, "innerGlow",      1, 0.3, 2, 2)
-    CreateScaleAnim(f.animIn, "innerGlowOver",  1, 0.3, 2, 2)
-    CreateAlphaAnim(f.animIn, "innerGlowOver",  1, 0.3, alpha, 0, nil, false)
-    CreateScaleAnim(f.animIn, "outerGlow",      1, 0.3, 0.5, 0.5)
-    CreateScaleAnim(f.animIn, "outerGlowOver",  1, 0.3, 0.5, 0.5)
-    CreateAlphaAnim(f.animIn, "outerGlowOver",  1, 0.3, alpha, 0, nil, false)
-    CreateScaleAnim(f.animIn, "spark",          1, 0.2, 2/3, 2/3, 0.2)
-    CreateAlphaAnim(f.animIn, "spark",          1, 0.2, alpha, 0, 0.2, false)
-    CreateAlphaAnim(f.animIn, "innerGlow",      1, 0.2, alpha, 0, 0.3, false)
-    CreateAlphaAnim(f.animIn, "ants",           1, 0.2, 0, alpha, 0.3, true)
-    f.animIn:SetScript("OnPlay", AnimIn_OnPlay)
-    f.animIn:SetScript("OnStop", AnimIn_OnStop)
-    f.animIn:SetScript("OnFinished", AnimIn_OnFinished)
+    -- WotLK compatible: use simple mock animation groups that just show/hide
+    f.animIn = { appear = {}, fade = {}, playing = false }
+    f.animIn.Play = function(self)
+        self.playing = true
+        AnimIn_OnPlay(self)
+        -- Simulate animation finishing immediately
+        C_Timer.After(0.3, function()
+            if self.playing then
+                self.playing = false
+                AnimIn_OnFinished(self)
+            end
+        end)
+    end
+    f.animIn.Stop = function(self)
+        self.playing = false
+        AnimIn_OnStop(self)
+    end
+    f.animIn.IsPlaying = function(self) return self.playing end
+    f.animIn.GetParent = function(self) return f end
 
-    f.animOut = f:CreateAnimationGroup()
-    f.animOut.appear = {}
-    f.animOut.fade = {}
-    CreateAlphaAnim(f.animOut, "outerGlowOver", 1, 0.2, 0, alpha, nil, true)
-    CreateAlphaAnim(f.animOut, "ants",          1, 0.2, alpha, 0, nil, false)
-    CreateAlphaAnim(f.animOut, "outerGlowOver", 2, 0.2, alpha, 0, nil, false)
-    CreateAlphaAnim(f.animOut, "outerGlow",     2, 0.2, alpha, 0, nil, false)
-    f.animOut:SetScript("OnFinished", function(self) ButtonGlowPool:Release(self:GetParent())  end)
+    f.animOut = { appear = {}, fade = {}, playing = false }
+    f.animOut.Play = function(self)
+        self.playing = true
+        -- Fade out effect - just hide after delay
+        C_Timer.After(0.2, function()
+            if self.playing then
+                self.playing = false
+                ButtonGlowPool:Release(f)
+            end
+        end)
+    end
+    f.animOut.Stop = function(self)
+        self.playing = false
+    end
+    f.animOut.IsPlaying = function(self) return self.playing end
+    f.animOut.GetParent = function(self) return f end
 
     f:SetScript("OnHide", bgHide)
 end
@@ -767,126 +848,86 @@ local function ProcGlowResetter(framePool, frame)
     end
 end
 
-local ProcGlowPool = CreateFramePool("Frame", GlowParent, nil, ProcGlowResetter)
+-- Custom ProcGlowPool for WotLK compatibility
+local ProcGlowPool = {
+    parent = GlowParent,
+    inactive = {},
+    active = {},
+    count = 0,
+}
+function ProcGlowPool:Acquire()
+    local frame = tremove(self.inactive)
+    local isNew = false
+    if not frame then
+        self.count = self.count + 1
+        frame = CreateFrame("Frame", nil, self.parent)
+        isNew = true
+    end
+    self.active[frame] = true
+    return frame, isNew
+end
+function ProcGlowPool:Release(frame)
+    if self.active[frame] then
+        self.active[frame] = nil
+        ProcGlowResetter(self, frame)
+        tinsert(self.inactive, frame)
+    end
+end
 lib.ProcGlowPool = ProcGlowPool
 
 local function InitProcGlow(f)
+    -- WotLK compatibility: SetAtlas, SetChildKey, FlipBook don't exist
+    -- Create simple textures without Retail-only features
     f.ProcStart = f:CreateTexture(nil, "ARTWORK")
     f.ProcStart:SetBlendMode("ADD")
-    f.ProcStart:SetAtlas("UI-HUD-ActionBar-Proc-Start-Flipbook")
-    f.ProcStart:SetAlpha(1)
+    -- Use a simple texture instead of Atlas
+    f.ProcStart:SetTexture([[Interface\SpellActivationOverlay\IconAlert]])
+    f.ProcStart:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
+    f.ProcStart:SetAlpha(0)
     f.ProcStart:SetSize(150, 150)
     f.ProcStart:SetPoint("CENTER")
 
     f.ProcLoop = f:CreateTexture(nil, "ARTWORK")
-    f.ProcLoop:SetAtlas("UI-HUD-ActionBar-Proc-Loop-Flipbook")
+    -- Use a simple texture instead of Atlas
+    f.ProcLoop:SetTexture([[Interface\SpellActivationOverlay\IconAlert]])
+    f.ProcLoop:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
     f.ProcLoop:SetAlpha(0)
     f.ProcLoop:SetAllPoints()
 
-    f.ProcLoopAnim = f:CreateAnimationGroup()
-    f.ProcLoopAnim:SetLooping("REPEAT")
-    f.ProcLoopAnim:SetToFinalAlpha(true)
+    -- WotLK: Create stub animation groups that don't use Retail-only features
+    f.ProcLoopAnim = { playing = false }
+    f.ProcLoopAnim.Play = function(self) self.playing = true end
+    f.ProcLoopAnim.Stop = function(self) self.playing = false end
+    f.ProcLoopAnim.IsPlaying = function(self) return self.playing end
 
-    local alphaRepeat = f.ProcLoopAnim:CreateAnimation("Alpha")
-    alphaRepeat:SetChildKey("ProcLoop")
-    alphaRepeat:SetFromAlpha(1)
-    alphaRepeat:SetToAlpha(1)
-    alphaRepeat:SetDuration(.001)
-    alphaRepeat:SetOrder(0)
-    f.ProcLoopAnim.alphaRepeat = alphaRepeat
+    f.ProcStartAnim = { playing = false }
+    f.ProcStartAnim.Play = function(self) self.playing = true end
+    f.ProcStartAnim.Stop = function(self) self.playing = false end
+    f.ProcStartAnim.IsPlaying = function(self) return self.playing end
+    f.ProcStartAnim.SetScript = function() end
 
-    local flipbookRepeat = f.ProcLoopAnim:CreateAnimation("FlipBook")
-    flipbookRepeat:SetChildKey("ProcLoop")
-    flipbookRepeat:SetDuration(1)
-    flipbookRepeat:SetOrder(0)
-    flipbookRepeat:SetFlipBookRows(6)
-    flipbookRepeat:SetFlipBookColumns(5)
-    flipbookRepeat:SetFlipBookFrames(30)
-    flipbookRepeat:SetFlipBookFrameWidth(0)
-    flipbookRepeat:SetFlipBookFrameHeight(0)
-    f.ProcLoopAnim.flipbookRepeat = flipbookRepeat
-
-    f.ProcStartAnim = f:CreateAnimationGroup()
-    f.ProcStartAnim:SetToFinalAlpha(true)
-
-    local flipbookStartAlphaIn = f.ProcStartAnim:CreateAnimation("Alpha")
-    flipbookStartAlphaIn:SetChildKey("ProcStart")
-    flipbookStartAlphaIn:SetDuration(.001)
-    flipbookStartAlphaIn:SetOrder(0)
-    flipbookStartAlphaIn:SetFromAlpha(1)
-    flipbookStartAlphaIn:SetToAlpha(1)
-
-    local flipbookStart = f.ProcStartAnim:CreateAnimation("FlipBook")
-    flipbookStart:SetChildKey("ProcStart")
-    flipbookStart:SetDuration(0.7)
-    flipbookStart:SetOrder(1)
-    flipbookStart:SetFlipBookRows(6)
-    flipbookStart:SetFlipBookColumns(5)
-    flipbookStart:SetFlipBookFrames(30)
-    flipbookStart:SetFlipBookFrameWidth(0)
-    flipbookStart:SetFlipBookFrameHeight(0)
-
-    local flipbookStartAlphaOut = f.ProcStartAnim:CreateAnimation("Alpha")
-    flipbookStartAlphaOut:SetChildKey("ProcStart")
-    flipbookStartAlphaOut:SetDuration(.001)
-    flipbookStartAlphaOut:SetOrder(2)
-    flipbookStartAlphaOut:SetFromAlpha(1)
-    flipbookStartAlphaOut:SetToAlpha(0)
-
-    f.ProcStartAnim.flipbookStart = flipbookStart
-    f.ProcStartAnim:SetScript("OnFinished", function(self)
-        self:GetParent().ProcLoopAnim:Play()
-        self:GetParent().ProcLoop:Show()
-    end)
-
+    f.key = nil
 end
 
 local function SetupProcGlow(f, options)
-    f.key = "_ProcGlow" .. options.key -- for resetter
-    f:SetScript("OnHide", function(self)
-        if self.ProcStartAnim:IsPlaying() then
-            self.ProcStartAnim:Stop()
-        end
-        if self.ProcLoopAnim:IsPlaying() then
-            self.ProcLoopAnim:Stop()
-        end
-    end)
-    f:SetScript("OnShow", function(self)
-        if self.startAnim then
-            if not self.ProcStartAnim:IsPlaying() and not self.ProcLoopAnim:IsPlaying() then
-                --[[
-to future me:
-i wish you'r ok, if you wonder where are this constants coming from, check:
-https://github.com/Gethe/wow-ui-source/blob/eb4459c679a1bd8919cad92934ea83c4f5e77e8b/Interface/FrameXML/ActionButton.lua#L816
-https://github.com/Gethe/wow-ui-source/blob/d8e8ebf572c3b28237cf83e8fc5c0583b5453a2b/Interface/FrameXML/ActionButtonTemplate.xml#L5-L14
-                ]]
-                local width, height = self:GetSize()
-                self.ProcStart:SetSize((width / 42 * 150) / 1.4, (height / 42 * 150) / 1.4)
-                self.ProcStart:Show()
-                self.ProcLoop:Hide()
-                self.ProcStartAnim:Play()
-            end
-        else
-            if not self.ProcLoopAnim:IsPlaying() then
-                self.ProcStart:Hide()
-                self.ProcLoop:Show()
-                self.ProcLoopAnim:Play()
-            end
-        end
-    end)
+    -- WotLK: Simple setup without complex animations
+    f.key = "_ProcGlow" .. (options.key or "")
+    
     if not options.color then
-        f.ProcStart:SetDesaturated(nil)
+        if f.ProcStart.SetDesaturated then f.ProcStart:SetDesaturated(nil) end
         f.ProcStart:SetVertexColor(1, 1, 1, 1)
-        f.ProcLoop:SetDesaturated(nil)
+        if f.ProcLoop.SetDesaturated then f.ProcLoop:SetDesaturated(nil) end
         f.ProcLoop:SetVertexColor(1, 1, 1, 1)
     else
-        f.ProcStart:SetDesaturated(1)
-        f.ProcStart:SetVertexColor(options.color[1], options.color[2], options.color[3], options.color[4])
-        f.ProcLoop:SetDesaturated(1)
-        f.ProcLoop:SetVertexColor(options.color[1], options.color[2], options.color[3], options.color[4])
+        if f.ProcStart.SetDesaturated then f.ProcStart:SetDesaturated(1) end
+        f.ProcStart:SetVertexColor(options.color[1], options.color[2], options.color[3], options.color[4] or 1)
+        if f.ProcLoop.SetDesaturated then f.ProcLoop:SetDesaturated(1) end
+        f.ProcLoop:SetVertexColor(options.color[1], options.color[2], options.color[3], options.color[4] or 1)
     end
-    f.ProcLoopAnim.flipbookRepeat:SetDuration(options.duration)
-    f.startAnim = options.startAnim
+    
+    -- WotLK: Just show the glow texture directly without animations
+    f.ProcStart:SetAlpha(0)
+    f.ProcLoop:SetAlpha(options.color and options.color[4] or 1)
 end
 
 local ProcGlowDefaults = {

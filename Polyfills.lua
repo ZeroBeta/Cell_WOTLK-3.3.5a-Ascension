@@ -1973,7 +1973,7 @@ end
 -------------------------------------------------
 C_Timer.After(0.5, function()
     if LibStub then
-        local LCG = LibStub("LibCustomGlow-1.0", true)
+        local LCG = LibStub("LibCustomGlow-1.0-Cell", true)
         if LCG and LCG.AutoCastGlow_Start then
             local origStart = LCG.AutoCastGlow_Start
             LCG.AutoCastGlow_Start = function(r, color, N, frequency, scale, xOffset, yOffset, key, frameLevel)
@@ -2156,7 +2156,7 @@ do
 
     -- Fix 5: LibCustomGlow acUpdate crash (attempt to perform arithmetic on field 'space' (a nil value))
     local function PatchLibCustomGlow()
-        local lib = LibStub and LibStub("LibCustomGlow-1.0", true)
+        local lib = LibStub and LibStub("LibCustomGlow-1.0-Cell", true)
         if not lib then return end
         if Cell._LibCustomGlowPatched then return end
         Cell._LibCustomGlowPatched = true

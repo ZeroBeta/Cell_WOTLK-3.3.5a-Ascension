@@ -8,7 +8,7 @@ local B = Cell.bFuncs
 local I = Cell.iFuncs
 ---@type PixelPerfectFuncs
 local P = Cell.pixelPerfectFuncs
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 
 CELL_RECTANGULAR_CUSTOM_INDICATOR_ICONS = false
 

@@ -5,7 +5,7 @@ local B = Cell.bFuncs
 local U = Cell.uFuncs
 local P = Cell.pixelPerfectFuncs
 
-local LCG = LibStub("LibCustomGlow-1.0")
+local LCG = LibStub("LibCustomGlow-1.0-Cell")
 
 local glowOptionsTable
 local glowOptionsFrame, previewButton
